@@ -1,0 +1,33 @@
+server:
+  port: 8002
+
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/fraud_detect?useSSL=false&serverTimezone=UTC&useUnicode=true&characterEncoding=utf-8
+    username: root
+    password: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 100MB
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: GMT+8
+
+mybatis-plus:
+  mapper-locations: classpath:cn/moozlee/fraudetection/mapper/*.xml
+  type-aliases-package: cn.moozlee.fraudetection.entity
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+minio:
+  endpoint: http://localhost:9000
+  accessKey: MRdb4ScHOYmW5plW
+  secretKey: aBspcY7yScx29DYq3Zhs0qWljR5io0bI
+  bucketName: online
+
+
+
+
+
