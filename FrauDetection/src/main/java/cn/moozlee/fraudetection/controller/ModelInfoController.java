@@ -66,34 +66,6 @@ public class ModelInfoController {
         return new Result().code(200).message("查询成功").data(models);
     }
 
-    @GetMapping("/download/{id}")
-    public ResponseEntity<Resource> downloadFile(@PathVariable("id") Integer id, HttpServletResponse request) throws UnsupportedEncodingException {
-        final MlModel mlModel = mlModelMapper.selectById(id);
-        final String fileName = mlModel.getUrl();
-        InputStream inputStream = null;
-        Resource resource = null;
-        StatObjectResponse objectStat = null;
-        try {
-            inputStream = minioService.downloadFile(bucketName, fileName);
-            resource = new InputStreamResource(inputStream);
-            objectStat = minioService.getObjectStat(bucketName, fileName);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        if (inputStream == null || resource == null || objectStat == null) {
-            return new ResponseEntity<>(null, HttpStatus.NOT_FOUND);
-        }
-        long contentLength = objectStat.size();
-        String disposition = "attachment; filename=\"" + URLEncoder.encode(fileName, "UTF-8") + "\"";
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
-        headers.setContentLength(contentLength);
-        headers.set("Content-Disposition", disposition);
-
-        return new ResponseEntity<>(resource, headers, HttpStatus.OK);
-    }
-
     @Transactional
     @PostMapping("/upload")
     public Result uploadFile(@RequestParam("file") MultipartFile file, @RequestParam("name") String name) {
@@ -119,6 +91,7 @@ public class ModelInfoController {
 
         } catch (Exception e) {
             e.printStackTrace();
+            TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
             return new Result().code(500).message("模型导入有误");
         }
         return new Result().code(200).message("上传成功");

@@ -22,6 +22,8 @@ import {
   Select,
   Option,
   Link,
+  Tag,
+  Popconfirm,
   Notification
 } from 'element-ui'
 
@@ -47,5 +49,7 @@ Vue.use(Upload)
 Vue.use(Select)
 Vue.use(Option)
 Vue.use(Link)
+Vue.use(Tag)
+Vue.use(Popconfirm)
 
 Vue.prototype.$notify = Notification

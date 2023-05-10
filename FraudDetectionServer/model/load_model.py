@@ -12,4 +12,5 @@ def load_model(path):
     model = joblib.load(BytesIO(model_content))
     return model
 
+
 load = load_model

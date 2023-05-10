@@ -1,7 +1,9 @@
 package cn.moozlee.fraudetection.controller;
 
 import cn.moozlee.fraudetection.dto.ModelResponse;
+import cn.moozlee.fraudetection.entity.DetectResult;
 import cn.moozlee.fraudetection.entity.MlModel;
+import cn.moozlee.fraudetection.mapper.DetectResultMapper;
 import cn.moozlee.fraudetection.mapper.MlModelMapper;
 import cn.moozlee.fraudetection.service.HttpClient;
 import cn.moozlee.fraudetection.type_enum.DataType;
@@ -12,6 +14,8 @@ import cn.moozlee.fraudetection.service.MinioService;
 import cn.moozlee.fraudetection.type_enum.DetectState;
 import cn.moozlee.fraudetection.type_enum.ModelAPI;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.opencsv.CSVReader;
+import io.minio.errors.*;
 import okhttp3.Call;
 import okhttp3.Callback;
 import okhttp3.Response;
@@ -25,7 +29,13 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 
@@ -42,6 +52,8 @@ public class DetectController {
     DetectRecordMapper detectRecordMapper;
     @Autowired
     MlModelMapper mlModelMapper;
+    @Autowired
+    DetectResultMapper detectResultMapper;
     @Autowired
     HttpClient client;
     @Autowired
@@ -83,7 +95,9 @@ public class DetectController {
                         recordFailed(detectRecord);
                         return;
                     }
-                    recordSuccess(detectRecord, String.valueOf(res.getData()));
+                    String resultPath = String.valueOf(res.getData());
+                    handleResult(detectRecord, resultPath);
+                    recordSuccess(detectRecord, String.valueOf(resultPath));
                 }
             });
         } catch (Exception e) {
@@ -114,5 +128,27 @@ public class DetectController {
         record.setState(DetectState.SUCCESS.getId());
         record.setResultFile(resultFile);
         detectRecordMapper.updateById(record);
+    }
+
+    private void handleResult(DetectRecord record, String resultPath) {
+        try {
+            final InputStream inputStream = minioService.downloadFile(bucketName, resultPath);
+            CSVReader reader = new CSVReader(new InputStreamReader(inputStream));
+            boolean isTitle = true;
+            List<String[]> rows = reader.readAll();
+            for (String[] row : rows) {
+                if (isTitle) {
+                    isTitle = false;
+                    continue;
+                }
+                String firm = row[0];
+                String period = row[1];
+                String result = row[30];
+                final DetectResult detectResult = new DetectResult(record.getId(), firm, period, record.getModelType(), record.getDataType(), Integer.valueOf(result));
+                detectResultMapper.insert(detectResult);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }

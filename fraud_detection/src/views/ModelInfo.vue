@@ -117,7 +117,8 @@
 </template>
 
 <script>
-import {downloadModel, getModelList, importModel} from "@/api/model";
+import { getModelList, importModel} from "@/api/model";
+import {downloadFile} from "@/api/file";
 
 export default {
   name: "ModelInfo",
@@ -173,7 +174,7 @@ export default {
     async importModel(formName) {
       this.$refs[formName].validate(async (valid) => {
         if (valid) {
-          const {code} = await importModel(this.importForm)
+          const {code, message} = await importModel(this.importForm)
           if (code === 200) {
             this.$notify.success({
               title: '成功',
@@ -187,6 +188,7 @@ export default {
               message: message,
             })
           }
+          this.fileList = []
         } else {
           return false
         }
@@ -195,7 +197,7 @@ export default {
     downloadModelFile(id) {
       const model = this.modelList.find(model => model.id === id)
       // 向后端发送GET请求获取文件流
-      downloadModel(id).then(data => {
+      downloadFile(model.url).then(data => {
         // 下载文件
         const url = window.URL.createObjectURL(new Blob([data]));
         const link = document.createElement('a');

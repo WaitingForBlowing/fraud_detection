@@ -15,13 +15,6 @@ export function getAllModel() {
   }))
 }
 
-export function downloadModel(id) {
-  return service(({
-    url: `/download/${id}`,
-    method: 'get',
-    responseType: 'blob'
-  }))
-}
 
 export function importModel(param) {
   return service(({

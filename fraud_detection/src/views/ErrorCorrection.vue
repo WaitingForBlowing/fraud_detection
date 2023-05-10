@@ -3,17 +3,45 @@
     <div class="main">
       <el-card class="box-card">
         <el-form class="query-form" :model="queryInfo.query" :inline="true" size="small" ref="queryForm">
-          <el-form-item label="开始时间" prop="typeName">
-            <el-input v-model="queryInfo.query.typeName"></el-input>
+          <el-form-item label="公司名称" prop="firm">
+              <el-input v-model="queryInfo.query.firm"></el-input>
           </el-form-item>
-          <el-form-item label="结束时间" prop="specification">
-            <el-input v-model="queryInfo.query.specification"></el-input>
+          <el-form-item label="财报时间" prop="period">
+            <el-input v-model="queryInfo.query.period"></el-input>
           </el-form-item>
-          <el-form-item label="模型类型" prop="specification">
-            <el-select v-model="queryInfo.query.specification"></el-select>
+          <el-form-item label="检测类型" prop="dataType">
+            <el-select v-model="queryInfo.query.dataType" placeholder="请选择">
+              <el-option
+                  v-for="item in dataTypeList"
+                  :key="item.id"
+                  :label="item.name"
+                  :value="item.id">
+              </el-option>
+            </el-select>
           </el-form-item>
+          <el-form-item label="模型类型" prop="modelType">
+            <el-select v-model="queryInfo.query.modelType" placeholder="请选择">
+              <el-option
+                  v-for="item in modelList"
+                  :key="item.id"
+                  :label="item.name"
+                  :value="item.id">
+              </el-option>
+            </el-select>
+          </el-form-item>
+          <el-form-item label="造假情况" prop="result">
+            <el-select v-model="queryInfo.query.result" placeholder="请选择">
+              <el-option
+                  v-for="item in resultEnum"
+                  :key="item.id"
+                  :label="item.name"
+                  :value="item.id">
+              </el-option>
+            </el-select>
+          </el-form-item>
+          <br/>
           <el-form-item class="submit-btn">
-            <el-button type="primary" @click="getProductList()">查询</el-button>
+            <el-button type="primary" @click="getResultList">查询</el-button>
           </el-form-item>
           <el-form-item>
             <el-button @click="resetForm()">重置</el-button>
@@ -21,7 +49,7 @@
         </el-form>
         <!--表格区域-->
         <el-table
-            :data="productList"
+            :data="resultList"
             stripe
             border
             fit
@@ -33,32 +61,46 @@
               align="center"
               :resizable="false"/>
           <el-table-column
-              prop="time"
-              label="时间"
-              width="260"
+              prop="firm"
+              label="公司名称"
               :resizable="false"/>
           <el-table-column
-              prop="model"
+              prop="period"
+              label="财报日期"
+              :resizable="false"/>
+          <el-table-column
+              prop="modelType"
               label="模型类型"
-              width="260"
               :resizable="false"/>
           <el-table-column
-              prop="inData"
-              label="数据组织方式"
-              width="260"
-              :resizable="false"/>
+              prop="dataType"
+              label="检测类型"
+              :resizable="false">
+            <template slot-scope="scope">
+              <el-tag v-if="scope.row.dataType === 0" effect="dark">原始数据</el-tag>
+              <el-tag v-if="scope.row.dataType === 1" type="success" effect="dark">财务比率</el-tag>
+            </template>
+          </el-table-column>
           <el-table-column
               prop="result"
-              label="预测结果"
-              width="360"
-              :resizable="false"/>
+              label="检测结果"
+              :resizable="false">
+            <template slot-scope="scope">
+              <el-tag v-if="scope.row.result === 0" effect="dark" type="success">无造假</el-tag>
+              <el-tag v-if="scope.row.result === 1" effect="dark">疑似造假</el-tag>
+            </template>
+          </el-table-column>
           <el-table-column
-              label="操作"
+              label="纠正准确性"
               :resizable="false">
             <template slot-scope="scope">
               <!-- 修改 -->
-              <el-button type="primary" size="mini" icon="el-icon-edit"
-                         @click="showEditDialog(scope.row.id)"></el-button>
+              <el-popconfirm
+                  title="确定需要更正吗?"
+                  @confirm="setAccuracy(scope.row.id)">
+                <el-button type="primary" size="mini" icon="el-icon-edit" slot="reference"></el-button>
+              </el-popconfirm>
+
             </template>
           </el-table-column>
         </el-table>
@@ -78,225 +120,106 @@
 </template>
 
 <script>
+import {getAllModel} from "@/api/model";
+import {getResultList, updateResult} from "@/api/result";
+
+
 export default {
   name: "ErrorCorrection",
   data() {
     return {
       queryInfo: {
         query: {
-          name: '',
-          specification: '',
-          description: '',
-          typeName: ''
+          firm: '',
+          period: '',
+          modelType: '',
+          dataType: '',
+          result: ''
         },
         pageNumber: 1,
         pageSize: 5
       },
-      formData: {
-        name: '',
-        specification: '',
-        description: '',
-        typeName: ''
-      },
-      formRules: {
-        name: [
-          {
-            required: true,
-            message: '产品名称不可为空',
-            trigger: 'blur'
-          }
-        ],
-        specification: [
-          {
-            required: true,
-            message: '产品规格不可为空',
-            trigger: 'blur'
-          }
-        ],
-        description: [
-          {
-            required: true,
-            message: '产品描述不可为空',
-            trigger: 'blur'
-          }
-        ]
-      },
-      editForm: {},
-      editFormRules: {
-        name: [
-          {
-            required: true,
-            message: '产品名称不可为空',
-            trigger: 'blur'
-          }
-        ],
-        specification: [
-          {
-            required: true,
-            message: '产品规格不可为空',
-            trigger: 'blur'
-          }
-        ],
-        description: [
-          {
-            required: true,
-            message: '产品描述不可为空',
-            trigger: 'blur'
-          }
-        ]
-      },
-      productList: [
+      dataTypeList: [
         {
           id: 0,
-          time: '20230101',
-          model: '逻辑回归',
-          inData: '财务原数据',
-          result: '造假'
+          name: '原始数据'
+        },
+        {
+          id: 1,
+          name: '财务比率'
         }
       ],
-      typeList: [],
-      total: 0,
-      addDialogVisible: false,
-      editDialogVisible: false
+      modelList: [],
+      resultEnum: [
+        {
+          id: 0,
+          name: '未作弊'
+        },
+        {
+          id: 1,
+          name: '疑似造假',
+        }
+      ],
+      resultList:[],
+      total: 0
     }
   },
   created() {
-    this.getProductList()
+    this.getAllModel()
+    this.getResultList()
   },
   methods: {
-    async getProductList() {
-      const {data} = await getProductList(this.queryInfo)
-      console.log(data)
-      this.productList = data.records
+    async getResultList() {
+      let query = JSON.stringify(this.queryInfo.query)
+      let queryParam = {
+        query: query,
+        pageNumber: this.queryInfo.pageNumber,
+        pageSize: this.queryInfo.pageSize
+      }
+      const {data} = await getResultList(queryParam)
+      this.resultList = data.records.map(r => {
+        const dateObj = new Date(r.uploadTime);
+        const formattedDate = dateObj.toLocaleDateString('zh-CN', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+        return {
+          id: r.id,
+          firm: r.firm,
+          period: r.period,
+          uploadTime: formattedDate,
+          modelType: this.modelList.find(model => model.id === r.modelType).name,
+          dataType: r.dataType,
+          result: r.result,
+        }
+      })
       this.total = data.total
     },
     handleSizeChange(newSize) {
       this.queryInfo.pageSize = newSize
-      this.getProductList()
+      this.getResultList()
     },
     handleCurrentChange(newPage) {
       this.queryInfo.pageNumber = newPage
-      this.getProductList()
+      this.getResultList()
     },
     resetForm() {
       this.$refs['queryForm'].resetFields()
-      this.getProductList()
+      this.getResultList()
     },
-    addDialogClosed() {
-      this.addDialogVisible = false
-      this.$refs.addForm.resetFields()
-      this.formData.typeName = ''
+    async getAllModel() {
+      const {data} = await getAllModel()
+      this.modelList = data
     },
-    async showAddDialog() {
-      this.addDialogVisible = true
-      const { data } = await getAll()
-      this.typeList = data
-    },
-    async addProduct(formName) {
-      this.$refs[formName].validate(async (valid) => {
-        if (valid) {
-          const {code, message} = await addProduct(QS.stringify(this.formData))
-          if (code !== 200) {
-            this.$notify.error({
-              title: '错误',
-              message: message
-            })
-          } else {
-            this.$notify.success({
-              title: '成功',
-              message: message,
-            })
-          }
-          await this.getProductList()
-          this.addDialogVisible = false
-        } else {
-          return false
-        }
-      })
-    },
-    // 删除
-    async removeProduct(id) {
-      // 询问用户弹窗
-      const result = await this.$confirm('此操作将永久删除该产品, 是否继续?', '提示', {
-        type: 'warning',
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        showCancelButton: true
-      }).catch(err => err)
-      if (result === 'confirm') {
-        const {
-          code
-        } = await removeProductById(id)
-        await this.getProductList()
-        if (code === 200) {
-          this.$notify.success({
-            title: '成功',
-            message: '删除成功'
-          })
-        } else {
-          this.$notify.error({
-            title: '失败',
-            message: '删除失败'
-          })
-        }
-      } else if (result === 'cancel') {
-        this.$notify.info({
-          title: '提示',
-          message: '已经取消删除'
-        })
+    async setAccuracy(id) {
+      const {code} = await updateResult(id)
+      if (code === 200) {
+        await this.getResultList()
       }
-    },
-    // 展示修改对话框
-    async showEditDialog(id) {
-      console.log(id)
-      this.editDialogVisible = true
-      const {
-        data,
-        code
-      } = await selectProductById(id)
-      const { data: res } = await getAll()
-      if (code !== 200) {
-        this.$notify.error({
-          title: '失败',
-          message: '请求错误'
-        })
-      } else {
-        this.typeList = res
-        this.editForm = data
-      }
-    },
-    // 修改用户
-    editProduct() {
-      this.$refs.editFormRef.validate(async valid => {
-        if (valid) {
-          let data = {
-            id: this.editForm.id,
-            name: this.editForm.name,
-            typeName: this.editForm.typeName,
-            specification: this.editForm.specification,
-            description: this.editForm.description
-          }
-          const {
-            code
-          } = await updateProductById(QS.stringify(data))
-          if (code !== 200) {
-            this.$notify.error({
-              title: '失败',
-              message: '错误'
-            })
-          } else {
-            this.$notify.success({
-              title: '成功',
-              message: '修改成功'
-            })
-            await this.getProductList()
-            this.editDialogVisible = false
-          }
-        } else {
-          return false
-        }
-      })
-    },
+    }
   }
 }
 </script>
@@ -360,5 +283,12 @@ export default {
 
 .main .box-card .submit-btn {
   margin-left: 35px;
+}
+
+.query-form {
+  flex-wrap: wrap!important;
+}
+.query-form .el-form-item {
+  margin-left: 15px!important;
 }
 </style>

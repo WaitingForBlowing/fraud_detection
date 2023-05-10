@@ -130,7 +130,7 @@ export default {
     async singleDetect(formName) {
       this.$refs[formName].validate(async (valid) => {
         if (valid) {
-          const {code} = await singleDetect(this.detectForm)
+          const {code, message} = await singleDetect(this.detectForm)
           if (code === 200) {
             this.$notify.success({
               title: '成功',
@@ -143,7 +143,7 @@ export default {
               message: message,
             })
           }
-
+          this.fileList = []
         } else {
           return false
         }
@@ -160,7 +160,6 @@ export default {
       })
     },
     uploadChange(file, fileList) {
-      console.log(file.name)
       this.detectForm.file = fileList[0].raw;
     },
   }
